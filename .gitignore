@@ -1,0 +1,7 @@
+.idea
+env/Scripts
+env/Include
+env/Lib
+env/selenium
+env/tcl
+pip-selfcheck.json
