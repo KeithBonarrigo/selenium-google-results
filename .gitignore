@@ -4,4 +4,5 @@ env/Include
 env/Lib
 env/selenium
 env/tcl
+env/__pycache__
 pip-selfcheck.json
