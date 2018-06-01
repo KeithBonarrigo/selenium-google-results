@@ -27,7 +27,7 @@ myterms = [
     'developing accommodations for the workplace bothell',
     'developing accommodations for the workplace seattle'
 ] #our search terms
-g = gsearch(myterms, driver)
+g = GoogleSearch(myterms, driver)
 
 
 
