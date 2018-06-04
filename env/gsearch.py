@@ -3,12 +3,20 @@ from selenium.webdriver.common.by import By
 import datetime
 from selenium.webdriver.common.keys import Keys
 from random import randint
+from operator import itemgetter
 
 class GoogleSearch:
-    def __init__(self, myterms, driver, pager, url):
+    def __init__(self, myterms, driver, pager, url, regionals, random_range):
         self.url_to_look_for = url
-        self.myterms = myterms
+        new_terms = []
+        for term in myterms:
+            for region in regionals:
+                term_to_insert = term + " " + region
+                new_terms.append(term_to_insert)
+
+        self.myterms = new_terms
         self.driver = driver
+        self.random_range = random_range
         self.mypage = 1 # this is the page counter for the google search results
         self.pager = pager #number of pages to check
         self.report = [] #this is a container for the info we'll be logging
@@ -47,32 +55,36 @@ class GoogleSearch:
                 F.write('\r\n')
                 F.write("----------------------------------------------------------------")
                 F.write('\r\n')
+                ireport.sort(key=itemgetter(1))
                 for line in ireport:
-                    F.write(line)
+                    F.write(line[0])
                     F.write('\r\n')
                 F.write('\r\n')
             counter += 1
 
-        F.write(str(len(self.not_found)) + " terms not found in " + str(self.pager) + " pages:") #now write the results that don't appear
-        F.write("----------------------------------------------------------------")
-        F.write('\r\n')
-        for n in self.not_found:
-            F.write(n)
+        if(len(self.not_found) > 0):
+            F.write(str(len(self.not_found)) + " terms not found in " + str(self.pager) + " pages:") #now write the results that don't appear
             F.write('\r\n')
+            F.write("----------------------------------------------------------------")
+            F.write('\r\n')
+            for n in self.not_found:
+                F.write(n)
+                F.write('\r\n')
 
         F.close()
 
-    def get_sleep_random(self, start, stop):
-        return(randint(start, stop))
+    def get_sleep_random(self):
+
+        return(randint(self.random_range[0], self.random_range[1]))
 
     def sendthesearch(self,term):
         elem = self.driver.find_element_by_name("q")  # google search bar
         elem.clear()
-        rand = self.get_sleep_random(1, 4)
+        rand = self.get_sleep_random()
         time.sleep(rand)
         elem.send_keys(term)
         elem.send_keys(Keys.RETURN)
-        rand = self.get_sleep_random(1, 4)
+        rand = self.get_sleep_random()
         time.sleep(rand)
 
     def findsearchterm(self, term):
@@ -97,20 +109,22 @@ class GoogleSearch:
                 mycounter = mycounter + 1
             if self.url_to_look_for in thislink:
                 showcounter = str(mycounter)
-                message = "\"" + term + "\"" + " ---------------- found at position " + showcounter + " " + "(" + thislink + ")"
+                message = "\"" + term + "\"" + " --------- position " + showcounter + " --------- " + thislink
                 print(message)
-                self.report[self.mypage].append(message)
+                info_to_append = [message, showcounter]
+                self.report[self.mypage].append(info_to_append)
                 found = found + 1
         if found < 1 & self.mypage < self.pager:
             no_results_message = 'no results for ' + term + " on page " + str(self.mypage)
             print(no_results_message)
             #self.report.append(no_results_message)
             found = self.checknextpages(term, found)
-            if found == 0:
+        if found == 0:
+            if term not in self.not_found:
                 self.not_found.append(term)
 
         self.driver.back()
-        rand = self.get_sleep_random(1, 4)
+        rand = self.get_sleep_random()
         time.sleep(rand)
         return found
 
@@ -118,7 +132,7 @@ class GoogleSearch:
         print("checking page "+ str(self.mypage))
         elem = self.driver.find_element_by_link_text(str(self.mypage))
         elem.click()
-        rand = self.get_sleep_random(1, 4)
+        rand = self.get_sleep_random()
         time.sleep(rand)
         found = self.findsearchterm(term)
         if found == 1:
