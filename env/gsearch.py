@@ -5,11 +5,12 @@ from selenium.webdriver.common.keys import Keys
 from random import randint
 from operator import itemgetter
 
+
 class GoogleSearch:
     def __init__(self, myterms, driver, pager, url, regionals, random_range, search_deep):
         self.url_to_look_for = url
         new_terms = []
-        for term in myterms:
+        for term in myterms:  # here we append the geographic region name to append to the search
             for region in regionals:
                 term_to_insert = term + " " + region
                 new_terms.append(term_to_insert)
@@ -18,25 +19,24 @@ class GoogleSearch:
         self.driver = driver
         self.search_deep = search_deep
         self.random_range = random_range
-        self.mypage = 1 # this is the page counter for the google search results
-        self.pager = pager #number of pages to check
-        self.report = [] #this is a container for the info we'll be logging
-        self.report.append("") #set up our title slot for the report
+        self.mypage = 1  # this is the page counter for the google search results
+        self.pager = pager  # number of pages to check
+        self.report = {}  # this is a container for the info we'll be logging
         today = datetime.datetime.today().strftime('%m-%d-%Y')
         today_string = "SEO report for " + self.url_to_look_for + " on " + str(today)
-        self.report[0] = today_string
-        self.found_terms = []
-        self.not_found = [] #container for the terms that don't show up
+        self.report['test_date'] = [today_string]
+        self.found_terms = []  # bucket for the terms that came up in a search
+        self.not_found = []  # container for the terms that don't show up
+        term_array_added = 0  # loop_counter
 
-        page_array_added = 0 #loop_counter
-        while page_array_added < self.pager:
-            list_to_insert = [] #set up and empty container
-            self.report.append(list_to_insert ) #add it to the larger report list
-            page_array_added += 1
+        while term_array_added < len(self.myterms):
+            self.report[self.myterms[term_array_added]] = []  # add empty list to the larger report list
+            term_array_added += 1
 
-        #print(self.report)
+        print('new report:')
+        print(self.report)
 
-        for term in self.myterms: #now loop through our terms and see where they appear
+        for term in self.myterms:  # now loop through our terms and see where they appear
             self.mypage = 1
             print("------------------------------------------------------------")
             self.sendthesearch(term)
@@ -50,46 +50,35 @@ class GoogleSearch:
             print("------------------------------------------------------------")
 
         report_name = 'reportfile_' + str(today) + '.txt'
-        F = open(report_name,'w+')
-        counter = 0
-        F.write(today_string) #write the title
-        F.write('\r\n')
-        F.write('\r\n')
 
-        F.write("Terms tested:")
-        F.write('\r\n')
-        for term in self.myterms:
-            F.write(term)
-            F.write('\r\n')
+        with open(report_name, 'w+') as F:
+            for term, term_list in self.report.items():
+                if len(term_list) > 0:
+                    F.write('\r\n')
+                    F.write(term + ":")
+                    F.write('\r\n')
+                    F.write("-----------------------------------------------------------")
+                    F.write('\r\n')
+                for term_message in term_list:
+                    F.write(term_message)
+                    F.write('\r\n')
 
-        for ireport in self.report: #now write the results that showed up
-            if counter > 0:
-                F.write("Terms appearing on page " + str(counter) + ":")
+            print(self.report)
+
+            if len(self.not_found) > 0:
+                # now write the results that don't appear anywhere
+                F.write(str(len(self.not_found)) + " terms not found in " + str(self.pager) + " pages:")
                 F.write('\r\n')
                 F.write("----------------------------------------------------------------")
                 F.write('\r\n')
-                ireport.sort(key=itemgetter(1))
-                for line in ireport:
-                    F.write(line[0])
+                for n in self.not_found:
+                    F.write(n)
                     F.write('\r\n')
-                F.write('\r\n')
-            counter += 1
-
-        if(len(self.not_found) > 0):
-            F.write(str(len(self.not_found)) + " terms not found in " + str(self.pager) + " pages:") #now write the results that don't appear
-            F.write('\r\n')
-            F.write("----------------------------------------------------------------")
-            F.write('\r\n')
-            for n in self.not_found:
-                F.write(n)
-                F.write('\r\n')
-
-        F.close()
 
     def get_sleep_random(self):
-        return(randint(self.random_range[0], self.random_range[1]))
+        return randint(self.random_range[0], self.random_range[1])
 
-    def sendthesearch(self,term):
+    def sendthesearch(self, term):  # go ahead and type the search term into the google bar
         elem = self.driver.find_element_by_name("q")  # google search bar
         elem.clear()
         rand = self.get_sleep_random()
@@ -99,68 +88,71 @@ class GoogleSearch:
         rand = self.get_sleep_random()
         time.sleep(rand)
 
-    def findsearchterm(self, term, found):
+    def findsearchterm(self, term, found):  # we've sent the search term - now test the content for our target URL
         mycounter = int(0)  # basic counter to track the link position
         test_message = "Testing '" + term + "' at page " + str(self.mypage) + ":"
         print(test_message)
 
-        div = self.driver.find_element_by_class_name('srg')  # this is the elements that houses the links we're interested in
-        #found = 0  # track our link count to see if we need to move to the next page
-        for a in div.find_elements_by_xpath('.//a'):
-            thislink = str(a.get_attribute('href'))
-            if ('google.com' in thislink) | ('webcache.googleusercontent.com' in thislink):
-                continue
-            else:
-                mycounter = mycounter + 1
-            if self.url_to_look_for in thislink:
-                showcounter = str(mycounter)
-                message = "\"" + term + "\"" + " --------- position " + showcounter + " --------- " + thislink
-                print(message)
-                info_to_append = [message, showcounter]
-                self.report[self.mypage].append(info_to_append)
-                self.found_terms.append(term)
-                found = found + 1
+        try:
+            div = self.driver.find_element_by_class_name(
+                'srg')  # this is the elements that houses the links we're interested in
+            for a in div.find_elements_by_xpath('.//a'):
+                thislink = str(a.get_attribute('href'))
+                if ('google.com' in thislink) | ('webcache.googleusercontent.com' in thislink):
+                    continue
+                else:
+                    mycounter = mycounter + 1
+                if self.url_to_look_for in thislink:
+                    # showcounter = str(mycounter)
+                    message = "Position " + str(mycounter) + " Page " + str(self.mypage) + " --------- " + thislink
+                    print(message)
+                    self.report[term].append(message)
+                    self.found_terms.append(term)
+                    found = found + 1
+        finally:
+            pass
 
-        #print(" found is " + str(found) + " comparing " + str(self.mypage) + " and " + str(self.pager))
-        if found < 1 & (self.mypage <= self.pager):
-            no_results_message = 'no results for ' + term + " on page " + str(self.mypage)
-            print(no_results_message)
-            #self.report.append(no_results_message)
-            found = self.checknextpages(term, found)
+        if self.mypage <= self.pager:
+            if found < 1:
+                no_results_message = 'no results for ' + term + " on page " + str(self.mypage)
+                print(no_results_message)
+            found = self.checknextpages(term, found)  # go into the following pages to test
 
         self.driver.back()
         rand = self.get_sleep_random()
         time.sleep(rand)
-        #print("find func returning " + str(found))
         return found
 
-    def checksubsequentpage(self, term, found):
-        #print("inside checksubsequentpage found is " + str(found))
-        #print("checking page "+ str(self.mypage))
-        if(found < 1):
+    # def test_if_in_array(self, term):
+    #     print('checking this term:' + term)
+    #     for iterma in self.report:
+    #         for z in iterma:
+    #             if isinstance(z, list):  # lets see if there's a list to access
+    #                 print('inside term:')
+    #                 print(z[2][0])
+    #                 if term in z[2][0]:
+    #                     return z[2][1]
+    #     return None
+
+    def checksubsequentpage(self, term, found):  # looks for search term on subsequent pages
+        try:
             elem = self.driver.find_element_by_link_text(str(self.mypage))
             elem.click()
             rand = self.get_sleep_random()
             time.sleep(rand)
             found = self.findsearchterm(term, found)
             return found
-        else:
-            return 1
-        #print("inside checksubsequentpage 2 found is " + str(found))
 
+        finally:
+            return found
 
-
-    def checknextpages(self, term, found):
-        #print("inside checknextpages found is " + str(found))
-
+    def checknextpages(self, term, found):  # recursive function to drill into the pages for the search term
         if self.mypage < self.pager:
-            #print('found is ' + str(found))
             self.mypage = self.mypage+1
             found = self.checksubsequentpage(term, found)
             self.checknextpages(term, found)
             return found
-        elif self.mypage==self.pager:
+        elif self.mypage == self.pager:
             return 1
         else:
             return 1
-        #self.driver.back()
